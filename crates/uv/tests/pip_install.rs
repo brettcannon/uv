@@ -900,8 +900,23 @@ fn no_deps() {
 fn install_upgrade() {
     let context = TestContext::new("3.12");
 
+    let filters = if cfg!(windows) {
+        // Remove Windows specific counts
+        INSTA_FILTERS
+            .iter()
+            .copied()
+            .chain([
+                ("15 packages", "14 packages"),
+                ("+ cffi==1.16.0\\n", ""),
+                ("+ pycparser==2.21\\n", ""),
+            ])
+            .collect()
+    } else {
+        INSTA_FILTERS.to_vec()
+    };
+
     // Install an old version of flask and trio.
-    uv_snapshot!(command(&context)
+    uv_snapshot!(filters, command(&context)
         .arg("Flask==2.3.2")
         .arg("trio==0.22.0")
         .arg("--strict"), @r###"
@@ -933,7 +948,7 @@ fn install_upgrade() {
     context.assert_command("import flask").success();
 
     // Upgrade flask.
-    uv_snapshot!(command(&context)
+    uv_snapshot!(filters, command(&context)
         .arg("Flask")
         .arg("--upgrade-package")
         .arg("Flask"), @r###"
@@ -951,7 +966,7 @@ fn install_upgrade() {
     );
 
     // Upgrade flask again, should not reinstall.
-    uv_snapshot!(command(&context)
+    uv_snapshot!(filters, command(&context)
         .arg("Flask")
         .arg("--upgrade-package")
         .arg("Flask"), @r###"
@@ -966,7 +981,7 @@ fn install_upgrade() {
     );
 
     // Install trio, request flask upgrade should not reinstall
-    uv_snapshot!(command(&context)
+    uv_snapshot!(filters, command(&context)
         .arg("trio")
         .arg("--upgrade-package")
         .arg("Flask"), @r###"
@@ -981,7 +996,7 @@ fn install_upgrade() {
     );
 
     // Upgrade trio with global flag
-    uv_snapshot!(command(&context)
+    uv_snapshot!(filters, command(&context)
         .arg("trio")
         .arg("--upgrade"), @r###"
     success: true
